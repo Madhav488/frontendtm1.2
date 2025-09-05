@@ -1,0 +1,46 @@
+import { Routes } from '@angular/router';
+import { HomeComponent } from './components/navbar/home/home.component';
+import { LoginComponent } from './components/navbar/auth/login.component';
+import { RegisterComponent } from './components/navbar/auth/register.component';
+import { EmployeeDashboardComponent } from './components/navbar/employee/employee-dashboard.component';
+import { MyEnrollmentsComponent } from './components/navbar/employee/my-enrollments.component';
+import { ManagerDashboardComponent } from './components/navbar/manager/manager-dashboard.component';
+import { AdminDashboardComponent } from './admin/admin-dashboard.component';
+import { AuthGuard } from './guards/auth.guard';
+import { RoleGuard } from './guards/role.guard';
+
+export const routes: Routes = [
+  { path: '', component: HomeComponent },
+  { path: 'login', component: LoginComponent },
+  { path: 'register', component: RegisterComponent },
+
+  {
+    path: 'employee',
+    component: EmployeeDashboardComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['Employee'] }
+  },
+  {
+    path: 'my-enrollments',
+    component: MyEnrollmentsComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['Employee'] }
+  },
+
+  {
+    path: 'manager',
+    component: ManagerDashboardComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['Manager'] }
+  },
+
+  {
+    path: 'admin',
+    component: AdminDashboardComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['Administrator'] }
+  },
+
+  // fallback
+  { path: '**', redirectTo: '' }
+];
