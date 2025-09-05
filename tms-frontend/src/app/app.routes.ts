@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from './components/navbar/home/home.component';
 import { LoginComponent } from './components/navbar/auth/login.component';
-
+import { AdminComponent } from './admin/admin.component';
 import { EmployeeDashboardComponent } from './components/navbar/employee/employee-dashboard.component';
 import { MyEnrollmentsComponent } from './components/navbar/employee/my-enrollments.component';
 import { ManagerDashboardComponent } from './components/navbar/manager/manager-dashboard.component';
@@ -36,7 +36,7 @@ export const routes: Routes = [
 
   {
     path: 'admin',
-    component: AdminUsersComponent,
+    component: AdminComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['Administrator'] }
   },

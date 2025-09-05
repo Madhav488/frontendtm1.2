@@ -4,7 +4,7 @@ import { Course } from '../models/domain.models';
 import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class CourseService {
-    private baseUrl = `${environment.apiUrl}/batches`;
+    private baseUrl = `${environment.apiUrl}/courses`;
   constructor(private http: HttpClient) {}
   getAll() { return this.http.get<Course[]>(this.baseUrl); }
   create(course: Partial<Course>) { return this.http.post<Course>(this.baseUrl, course);}
