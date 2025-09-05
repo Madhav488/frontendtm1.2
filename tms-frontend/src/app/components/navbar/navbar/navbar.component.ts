@@ -8,21 +8,21 @@ import { AuthService } from '../../../core/auth.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <nav class="nav">
-      <a routerLink="/" class="brand">TMS</a>
+  <nav class="nav">
+    <a routerLink="/" class="brand">TMS</a>
 
-      <div class="links">
-        <a routerLink="/">Home</a>
-        <a *ngIf="isEmployee" routerLink="/employee">Calendar</a>
-        <a *ngIf="isEmployee" routerLink="/my-enrollments">My Enrollments</a>
-        <a *ngIf="isManager" routerLink="/manager">Manager</a>
-        <a *ngIf="isAdmin" routerLink="/admin">Admin</a>
-        <a *ngIf="!isLoggedIn" routerLink="/login">Login</a>
-        <a *ngIf="!isLoggedIn" routerLink="/register">Register</a>
-        <a *ngIf="isLoggedIn" (click)="logout()" class="link-button">Logout</a>
-      </div>
-    </nav>
-  `,
+    <div class="links">
+      <a routerLink="/">Home</a>
+      <a *ngIf="isEmployee" routerLink="/employee">Calendar</a>
+      <a *ngIf="isEmployee" routerLink="/my-enrollments">My Enrollments</a>
+      <a *ngIf="isManager" routerLink="/manager">Manager</a>
+      <a *ngIf="isAdmin" routerLink="/admin">Admin</a>
+      <a *ngIf="!isLoggedIn" routerLink="/login">Login</a>
+      <!-- register removed -->
+      <a *ngIf="isLoggedIn" (click)="logout()" class="link-button">Logout</a>
+    </div>
+  </nav>
+`  ,
   styles: [`
     .nav { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #eee; }
     .brand { font-weight:700; font-size:18px; margin-right:20px; text-decoration:none; color:#333; }
