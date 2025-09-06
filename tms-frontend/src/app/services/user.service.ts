@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-
+import { EnrollmentDto } from '../models/domain.models';
 export interface ManagerDto {
   userId: number;
   username: string;
@@ -27,6 +27,7 @@ export interface EmployeeDto {
   firstName?: string;
   lastName?: string;
   manager?: { userId: number; username: string } | null;
+  enrollments?: EnrollmentDto[]; 
 }
 
 @Injectable({ providedIn: 'root' })
@@ -65,4 +66,5 @@ unassignEmployee(employeeId: number) {
 getEmployeeById(id: number): Observable<EmployeeDto> {
   return this.http.get<EmployeeDto>(`${this.apiUrl}/users/employee/${id}`);
 }
+
 }

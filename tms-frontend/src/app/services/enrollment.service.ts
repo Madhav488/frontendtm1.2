@@ -36,4 +36,11 @@ export class EnrollmentService {
   getPending() {
     return this.http.get<EnrollmentDto[]>(`${this.baseUrl}/pending`);
   }
+  getByEmployee(employeeId: number) {
+  return this.http.get<EnrollmentDto[]>(`${this.baseUrl}/employee/${employeeId}`);
+}
+
+enrollEmployee(employeeId: number, batchId: number) {
+  return this.http.post(`${this.baseUrl}/enroll?employeeId=${employeeId}&batchId=${batchId}`, {});
+}
 }
