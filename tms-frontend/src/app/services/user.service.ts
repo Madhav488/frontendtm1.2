@@ -21,6 +21,13 @@ export interface CreateUserDto {
   roleName: string; // "Manager" | "Employee" | "Administrator"
   managerId?: number | null;
 }
+export interface EmployeeDto {
+  userId: number;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  manager?: { userId: number; username: string } | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
@@ -43,4 +50,19 @@ export class UserService {
   deleteUser(userId: number) {
     return this.http.delete(`${this.apiUrl}/users/${userId}`);
   }
+  getEmployees(): Observable<EmployeeDto[]> {
+  return this.http.get<EmployeeDto[]>(`${this.apiUrl}/users/employees`);
+}
+
+assignEmployee(employeeId: number, managerId: number) {
+  return this.http.post(`${this.apiUrl}/users/assign?employeeId=${employeeId}&managerId=${managerId}`, {});
+}
+
+unassignEmployee(employeeId: number) {
+  return this.http.post(`${this.apiUrl}/users/unassign/${employeeId}`, {});
+}
+
+getEmployeeById(id: number): Observable<EmployeeDto> {
+  return this.http.get<EmployeeDto>(`${this.apiUrl}/users/employee/${id}`);
+}
 }

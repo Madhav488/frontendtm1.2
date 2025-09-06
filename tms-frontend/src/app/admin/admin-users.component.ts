@@ -4,7 +4,7 @@ import { CourseService } from '../services/course.service';
 import { BatchService } from '../services/batch.service';
 import { Course } from '../models/domain.models';
 import { FormsModule } from '@angular/forms';
-import { UserService, ManagerDto, CreateUserDto } from '../services/user.service';
+import { UserService, ManagerDto, CreateUserDto, EmployeeDto} from '../services/user.service';
 import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
 @Component({
   selector: 'app-admin-users',
@@ -13,6 +13,7 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
   template: `
     <h2>Admin — User Management</h2>
 
+    <!-- Manager creation -->
     <section class="panel">
       <h3>Register a new Manager</h3>
       <form [formGroup]="managerForm" (ngSubmit)="createManager()">
@@ -26,14 +27,16 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
       <div *ngIf="managerMsg" class="msg">{{managerMsg}}</div>
     </section>
 
+    <!-- Manager list -->
     <section class="panel">
       <h3>Managers</h3>
       <div *ngIf="loading">Loading managers...</div>
       <div *ngFor="let m of managers" class="manager-card">
         <div class="mgr-header">
-          <strong>{{m.username}}</strong> <small *ngIf="m.email">({{m.email}})</small>
+          <strong>{{m.username}}</strong> (ID: {{m.userId}})
+          <small *ngIf="m.email">({{m.email}})</small>
           <button (click)="toggleCreateFor(m.userId)">Create employee</button>
-           <button (click)="deleteManager(m.userId)">Delete</button> 
+          <button (click)="deleteManager(m.userId)">Delete</button> 
         </div>
 
         <div *ngIf="showCreateFor[m.userId]" class="create-employee-form">
@@ -49,16 +52,55 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
           <div *ngIf="msgMap[m.userId]" class="msg">{{msgMap[m.userId]}}</div>
         </div>
 
-      <div class="employees-list" *ngIf="m.employees?.length">
-        <em>Employees:</em>
-        <ul>
-        <li *ngFor="let e of m.employees">
-          {{e.username}}
+        <div class="employees-list" *ngIf="m.employees?.length">
+          <em>Employees:</em>
+          <ul>
+            <li *ngFor="let e of m.employees">
+              ID: {{e.userId}}
+              <button (click)="unassignEmployee(e.userId)">Unassign</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Employee list -->
+    <section class="panel">
+      <h3>Employees</h3>
+
+      <div>
+        <input type="number" [(ngModel)]="searchId" placeholder="Search by ID">
+        <button (click)="searchEmployee()">Search</button>
+        <button (click)="loadEmployees()">Clear</button>
+      </div>
+
+      <div>
+        <form [formGroup]="unassignedForm" (ngSubmit)="createUnassignedEmployee()">
+          <input formControlName="username" placeholder="username">
+          <input formControlName="firstName" placeholder="first name">
+          <input formControlName="lastName" placeholder="last name">
+          <input formControlName="email" placeholder="email">
+          <input formControlName="password" type="password" placeholder="password">
+          <button [disabled]="unassignedForm.invalid">Create Unassigned Employee</button>
+        </form>
+      </div>
+
+      <ul>
+        <li *ngFor="let e of employees">
+          ID: {{e.userId}} - {{e.firstName}} {{e.lastName}} 
+          <span *ngIf="e.manager"> (Manager: {{e.manager.username}})</span>
+          <span *ngIf="!e.manager"> (Unassigned)</span>
           <button (click)="deleteEmployee(e.userId)">Delete</button>
-         </li>
-        </ul>
-      </div>
-      </div>
+          <button *ngIf="!e.manager" (click)="startAssign(e.userId)">Assign</button>
+          <div *ngIf="assigningId === e.userId">
+            <select [(ngModel)]="selectedManagerId">
+              <option *ngFor="let m of managers" [value]="m.userId">{{m.username}}</option>
+            </select>
+            <button (click)="assignEmployee(e.userId, selectedManagerId)">Confirm</button>
+            <button (click)="cancelAssign()">Cancel</button>
+          </div>
+        </li>
+      </ul>
     </section>
   `,
   styles: [`
@@ -71,28 +113,42 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
 })
 export class AdminUsersComponent implements OnInit {
   managers: ManagerDto[] = [];
+  employees: EmployeeDto[] = [];
   loading = false;
 
   managerForm = new FormGroup({
     username: new FormControl('', Validators.required),
-    firstName: new FormControl(''),   // 👈
+    firstName: new FormControl(''),
     lastName: new FormControl(''),
     email: new FormControl(''),
     password: new FormControl('', Validators.required)
   });
-  managerMsg = '';
 
-  // per-manager create employee forms & UI state
+  unassignedForm = new FormGroup({
+    username: new FormControl('', Validators.required),
+    firstName: new FormControl(''),
+    lastName: new FormControl(''),
+    email: new FormControl(''),
+    password: new FormControl('', Validators.required)
+  });
+
+  managerMsg = '';
   showCreateFor: Record<number, boolean> = {};
   employeeForms: Record<number, FormGroup> = {};
   msgMap: Record<number, string> = {};
+  searchId: number | null = null;
+
+  assigningId: number | null = null;
+  selectedManagerId: number | null = null;
 
   constructor(private userSvc: UserService) {}
 
   ngOnInit() {
     this.loadManagers();
+    this.loadEmployees();
   }
 
+  // --- Managers ---
   loadManagers() {
     this.loading = true;
     this.userSvc.getManagers().subscribe({
@@ -103,7 +159,14 @@ export class AdminUsersComponent implements OnInit {
 
   createManager() {
     const val = this.managerForm.value;
-    const dto = { username: val.username, password: val.password, email: val.email, firstName: val.firstName ?? '',lastName: val.lastName ?? '',roleName: 'Manager' } as CreateUserDto;
+    const dto: CreateUserDto = {
+      username: val.username!,
+      password: val.password!,
+      email: val.email ?? '',
+      firstName: val.firstName ?? '',
+      lastName: val.lastName ?? '',
+      roleName: 'Manager'
+    };
     this.userSvc.createUser(dto).subscribe({
       next: () => {
         this.managerMsg = 'Manager created';
@@ -119,7 +182,7 @@ export class AdminUsersComponent implements OnInit {
     if (this.showCreateFor[managerId] && !this.employeeForms[managerId]) {
       this.employeeForms[managerId] = new FormGroup({
         username: new FormControl('', Validators.required),
-        firstName: new FormControl(''),   // 👈
+        firstName: new FormControl(''),
         lastName: new FormControl(''),
         email: new FormControl(''),
         password: new FormControl('', Validators.required)
@@ -135,9 +198,9 @@ export class AdminUsersComponent implements OnInit {
     const form = this.employeeForms[managerId];
     const val = form.value;
     const dto: CreateUserDto = {
-      username: val.username,
-      password: val.password,
-      email: val.email,
+      username: val.username!,
+      password: val.password!,
+      email: val.email ?? '',
       firstName: val.firstName ?? '',
       lastName: val.lastName ?? '',
       roleName: 'Employee',
@@ -147,25 +210,93 @@ export class AdminUsersComponent implements OnInit {
       next: () => {
         this.msgMap[managerId] = 'Employee created';
         this.employeeForms[managerId].reset();
-        this.loadManagers(); // refresh to show new employee
+        this.loadManagers();
+        this.loadEmployees();
       },
       error: e => this.msgMap[managerId] = 'Create failed: ' + (e?.error ?? JSON.stringify(e))
     });
   }
-  deleteManager(managerId: number) {
-  if (!confirm('Are you sure you want to delete this manager?')) return;
-  this.userSvc.deleteUser(managerId).subscribe({
-    next: () => this.loadManagers(),
-    error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
-  });
- }
- deleteEmployee(employeeId: number) {
-  if (!confirm('Are you sure you want to delete this employee?')) return;
-  this.userSvc.deleteUser(employeeId).subscribe({
-    next: () => this.loadManagers(), // refresh list
-    error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
-  });
-}
 
-  
+  deleteManager(managerId: number) {
+    if (!confirm('Are you sure you want to delete this manager?')) return;
+    this.userSvc.deleteUser(managerId).subscribe({
+      next: () => this.loadManagers(),
+      error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
+    });
+  }
+
+  // --- Employees ---
+  loadEmployees() {
+    this.userSvc.getEmployees().subscribe({
+      next: list => this.employees = list,
+      error: err => console.error(err)
+    });
+  }
+
+  searchEmployee() {
+    if (!this.searchId) { this.loadEmployees(); return; }
+    this.userSvc.getEmployeeById(this.searchId).subscribe({
+      next: e => this.employees = e ? [e] : [],
+      error: _ => this.employees = []
+    });
+  }
+
+  createUnassignedEmployee() {
+    const val = this.unassignedForm.value;
+    const dto: CreateUserDto = {
+      username: val.username!,
+      password: val.password!,
+      email: val.email ?? '',
+      firstName: val.firstName ?? '',
+      lastName: val.lastName ?? '',
+      roleName: 'Employee',
+      managerId: null
+    };
+    this.userSvc.createUser(dto).subscribe({
+      next: () => {
+        this.unassignedForm.reset();
+        this.loadEmployees();
+      },
+      error: e => alert('Create failed: ' + (e?.error ?? JSON.stringify(e)))
+    });
+  }
+
+  deleteEmployee(employeeId: number) {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+    this.userSvc.deleteUser(employeeId).subscribe({
+      next: () => this.loadEmployees(),
+      error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
+    });
+  }
+
+  startAssign(employeeId: number) {
+    this.assigningId = employeeId;
+  }
+
+  cancelAssign() {
+    this.assigningId = null;
+    this.selectedManagerId = null;
+  }
+
+  assignEmployee(employeeId: number, managerId: number | null) {
+    if (!managerId) return;
+    this.userSvc.assignEmployee(employeeId, managerId).subscribe({
+      next: () => {
+        this.cancelAssign();
+        this.loadEmployees();
+        this.loadManagers();
+      },
+      error: err => alert('Assign failed: ' + JSON.stringify(err))
+    });
+  }
+
+  unassignEmployee(employeeId: number) {
+    this.userSvc.unassignEmployee(employeeId).subscribe({
+      next: () => {
+        this.loadEmployees();
+        this.loadManagers();
+      },
+      error: err => alert('Unassign failed: ' + JSON.stringify(err))
+    });
+  }
 }
