@@ -17,6 +17,8 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
       <h3>Register a new Manager</h3>
       <form [formGroup]="managerForm" (ngSubmit)="createManager()">
         <input formControlName="username" placeholder="username">
+        <input formControlName="firstName" placeholder="first name">   
+        <input formControlName="lastName" placeholder="last name">
         <input formControlName="email" placeholder="email">
         <input formControlName="password" placeholder="password" type="password">
         <button [disabled]="managerForm.invalid">Create Manager</button>
@@ -31,11 +33,14 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
         <div class="mgr-header">
           <strong>{{m.username}}</strong> <small *ngIf="m.email">({{m.email}})</small>
           <button (click)="toggleCreateFor(m.userId)">Create employee</button>
+           <button (click)="deleteManager(m.userId)">Delete</button> 
         </div>
 
         <div *ngIf="showCreateFor[m.userId]" class="create-employee-form">
           <form [formGroup]="employeeForms[m.userId]" (ngSubmit)="createEmployee(m.userId)">
             <input formControlName="username" placeholder="employee username">
+            <input formControlName="firstName" placeholder="first name">  
+            <input formControlName="lastName" placeholder="last name">
             <input formControlName="email" placeholder="employee email">
             <input formControlName="password" placeholder="password" type="password">
             <button [disabled]="employeeForms[m.userId].invalid">Create Employee</button>
@@ -44,10 +49,15 @@ import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angula
           <div *ngIf="msgMap[m.userId]" class="msg">{{msgMap[m.userId]}}</div>
         </div>
 
-        <div class="employees-list" *ngIf="m.employees?.length">
-          <em>Employees:</em>
-          <ul><li *ngFor="let e of m.employees">{{e.username}}</li></ul>
-        </div>
+      <div class="employees-list" *ngIf="m.employees?.length">
+        <em>Employees:</em>
+        <ul>
+        <li *ngFor="let e of m.employees">
+          {{e.username}}
+          <button (click)="deleteEmployee(e.userId)">Delete</button>
+         </li>
+        </ul>
+      </div>
       </div>
     </section>
   `,
@@ -65,6 +75,8 @@ export class AdminUsersComponent implements OnInit {
 
   managerForm = new FormGroup({
     username: new FormControl('', Validators.required),
+    firstName: new FormControl(''),   // 👈
+    lastName: new FormControl(''),
     email: new FormControl(''),
     password: new FormControl('', Validators.required)
   });
@@ -91,7 +103,7 @@ export class AdminUsersComponent implements OnInit {
 
   createManager() {
     const val = this.managerForm.value;
-    const dto = { username: val.username, password: val.password, email: val.email, roleName: 'Manager' } as CreateUserDto;
+    const dto = { username: val.username, password: val.password, email: val.email, firstName: val.firstName ?? '',lastName: val.lastName ?? '',roleName: 'Manager' } as CreateUserDto;
     this.userSvc.createUser(dto).subscribe({
       next: () => {
         this.managerMsg = 'Manager created';
@@ -107,6 +119,8 @@ export class AdminUsersComponent implements OnInit {
     if (this.showCreateFor[managerId] && !this.employeeForms[managerId]) {
       this.employeeForms[managerId] = new FormGroup({
         username: new FormControl('', Validators.required),
+        firstName: new FormControl(''),   // 👈
+        lastName: new FormControl(''),
         email: new FormControl(''),
         password: new FormControl('', Validators.required)
       });
@@ -124,6 +138,8 @@ export class AdminUsersComponent implements OnInit {
       username: val.username,
       password: val.password,
       email: val.email,
+      firstName: val.firstName ?? '',
+      lastName: val.lastName ?? '',
       roleName: 'Employee',
       managerId
     };
@@ -136,4 +152,20 @@ export class AdminUsersComponent implements OnInit {
       error: e => this.msgMap[managerId] = 'Create failed: ' + (e?.error ?? JSON.stringify(e))
     });
   }
+  deleteManager(managerId: number) {
+  if (!confirm('Are you sure you want to delete this manager?')) return;
+  this.userSvc.deleteUser(managerId).subscribe({
+    next: () => this.loadManagers(),
+    error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
+  });
+ }
+ deleteEmployee(employeeId: number) {
+  if (!confirm('Are you sure you want to delete this employee?')) return;
+  this.userSvc.deleteUser(employeeId).subscribe({
+    next: () => this.loadManagers(), // refresh list
+    error: e => alert('Delete failed: ' + (e?.error ?? JSON.stringify(e)))
+  });
+}
+
+  
 }
