@@ -4,6 +4,7 @@ export interface Course {
   description?: string;
   durationDays?: number;
   createdOn?: string;
+   calendars?: CourseCalendar[];
 }
 
 export interface CourseCalendar {
@@ -13,6 +14,7 @@ export interface CourseCalendar {
   endDate: string;
   // backend currently marks Course as JsonIgnored on CourseCalendar; when you return the calendar in other endpoints (batches) it's populated
   course?: Course;
+  batches?: Batch[];
 }
 
 export interface Batch {

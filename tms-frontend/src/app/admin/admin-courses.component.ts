@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormGroup, FormControl, Validators, FormsModule } from '@angular/forms';
 import { CourseService } from '../services/course.service';
 import { BatchService } from '../services/batch.service';
 import { CalendarService } from '../services/calendar.service';
@@ -9,9 +9,12 @@ import { Course, CourseCalendar } from '../models/domain.models';
 @Component({
   selector: 'app-admin-courses',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   template: `
     <h2>Admin — Course, Calendar & Batch Management</h2>
+
+    <!-- Search -->
+    <input [(ngModel)]="searchTerm" placeholder="Search courses..." class="search"/>
 
     <!-- Create Course -->
     <section class="panel">
@@ -20,6 +23,8 @@ import { Course, CourseCalendar } from '../models/domain.models';
         <input formControlName="courseName" placeholder="Course Name">
         <input formControlName="description" placeholder="Description">
         <input formControlName="durationDays" type="number" placeholder="Duration (days)">
+        <input formControlName="startDate" type="date" placeholder="Start Date">
+        <input formControlName="endDate" type="date" placeholder="End Date">
         <button [disabled]="courseForm.invalid">Create Course</button>
       </form>
       <div *ngIf="courseMsg">{{courseMsg}}</div>
@@ -28,54 +33,82 @@ import { Course, CourseCalendar } from '../models/domain.models';
     <!-- Course List -->
     <section class="panel">
       <h3>Courses</h3>
-      <div *ngFor="let c of courses" class="course-card">
-        <strong>{{c.courseName}}</strong>
-        <small *ngIf="c.description"> — {{c.description}}</small>
+      <div *ngFor="let c of filteredCourses()" class="course-card">
+        <div>
+          <strong>{{c.courseName}}</strong> (ID: {{c.courseId}})
+          <small *ngIf="c.description"> — {{c.description}}</small>
+          <div>Duration: {{c.durationDays}} days</div>
 
-        <!-- Toggle Calendar Form -->
-        <button (click)="toggleCalendarForm(c.courseId)">+ Add Calendar</button>
-        <div *ngIf="showCalendarForm[c.courseId]">
-          <form [formGroup]="calendarForms[c.courseId]" (ngSubmit)="createCalendar(c.courseId)">
-            <input type="date" formControlName="startDate">
-            <input type="date" formControlName="endDate">
-            <button [disabled]="calendarForms[c.courseId].invalid">Create Calendar</button>
-          </form>
-          <div *ngIf="calendarMsgMap[c.courseId]">{{calendarMsgMap[c.courseId]}}</div>
+          <!-- Calendar Info -->
+          <div *ngIf="c.calendars?.length">
+            <em>Calendars:</em>
+            <ul>
+              <li *ngFor="let cal of c.calendars">
+                {{cal.startDate | date}} - {{cal.endDate | date}}
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <!-- Toggle Batch Form -->
-        <button (click)="toggleBatchForm(c.courseId)">+ Add Batch</button>
-        <div *ngIf="showBatchForm[c.courseId]">
+        <!-- Update Course -->
+        <button (click)="toggleUpdateForm(c.courseId)">Update Course</button>
+        <div *ngIf="showUpdateForm[c.courseId]">
+          <form [formGroup]="updateForms[c.courseId]" (ngSubmit)="updateCourse(c.courseId)">
+            <input formControlName="courseName" placeholder="Name">
+            <input formControlName="description" placeholder="Description">
+            <input formControlName="durationDays" type="number" placeholder="Duration">
+            <input formControlName="startDate" type="date">
+            <input formControlName="endDate" type="date">
+            <button [disabled]="updateForms[c.courseId].invalid">Save</button>
+          </form>
+        </div>
+
+        <button (click)="deleteCourse(c.courseId)">Delete Course</button>
+
+        <!-- Batches -->
+        <div *ngIf="c.calendars?.length">
+          <em>Batches:</em>
+          <ul>
+            <li *ngFor="let cal of c.calendars">
+              <div *ngFor="let b of cal.batches">
+                {{b.batchName}} (ID: {{b.batchId}})
+                <button (click)="deleteBatch(b.batchId)">Delete</button>
+                <button (click)="deactivateBatch(b.batchId)">Deactivate</button>
+              </div>
+            </li>
+          </ul>
+
+          <!-- Add Batch -->
           <form [formGroup]="batchForms[c.courseId]" (ngSubmit)="createBatch(c.courseId)">
-            <input formControlName="batchName" placeholder="Batch Name">
+            <input formControlName="batchName" placeholder="New Batch Name">
             <button [disabled]="batchForms[c.courseId].invalid">Create Batch</button>
           </form>
-          <div *ngIf="batchMsgMap[c.courseId]">{{batchMsgMap[c.courseId]}}</div>
         </div>
       </div>
     </section>
   `,
-  styles: [`.panel{border:1px solid #eee;padding:12px;margin-bottom:14px}`]
+  styles: [`
+    .panel { border:1px solid #eee;padding:12px;margin-bottom:14px }
+    .course-card { border-top:1px dashed #ddd;padding:8px 0 }
+    .search { margin: 10px 0; padding: 6px; width: 300px; }
+  `]
 })
 export class AdminCoursesComponent implements OnInit {
   courses: Course[] = [];
+  searchTerm = '';
+
   courseForm = new FormGroup({
-    courseName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    description: new FormControl('', { nonNullable: true }),
-    durationDays: new FormControl(0, { nonNullable: true })
+    courseName: new FormControl('', Validators.required),
+    description: new FormControl(''),
+    durationDays: new FormControl(0),
+    startDate: new FormControl('', Validators.required),
+    endDate: new FormControl('', Validators.required)
   });
   courseMsg = '';
 
-  // Calendar
-  showCalendarForm: Record<number, boolean> = {};
-  calendarForms: Record<number, FormGroup> = {};
-  calendarMsgMap: Record<number, string> = {};
-  courseCalendars: Record<number, CourseCalendar> = {};
-
-  // Batch
-  showBatchForm: Record<number, boolean> = {};
+  showUpdateForm: Record<number, boolean> = {};
+  updateForms: Record<number, FormGroup> = {};
   batchForms: Record<number, FormGroup> = {};
-  batchMsgMap: Record<number, string> = {};
 
   constructor(
     private courseSvc: CourseService,
@@ -91,71 +124,105 @@ export class AdminCoursesComponent implements OnInit {
     this.courseSvc.getAll().subscribe(c => this.courses = c);
   }
 
+  filteredCourses() {
+    if (!this.searchTerm) return this.courses;
+    const term = this.searchTerm.toLowerCase();
+    return this.courses.filter(c =>
+      c.courseName.toLowerCase().includes(term) ||
+      (c.description?.toLowerCase().includes(term)) ||
+      c.courseId.toString().includes(term)
+    );
+  }
+
   createCourse() {
-    this.courseSvc.create(this.courseForm.value).subscribe({
-      next: () => {
-        this.courseMsg = 'Course created';
-        this.courseForm.reset();
-        this.loadCourses();
+    const val = this.courseForm.value;
+    this.courseSvc.create({
+      courseName: val.courseName!,
+      description: val.description!,
+      durationDays: val.durationDays ?? 0 
+    }).subscribe({
+      next: course => {
+        // create calendar immediately
+        this.calendarSvc.create({
+          courseId: course.courseId,
+          startDate: val.startDate!,
+          endDate: val.endDate!
+        }).subscribe(() => {
+          this.courseMsg = 'Course + Calendar created';
+          this.courseForm.reset();
+          this.loadCourses();
+        });
       },
       error: err => this.courseMsg = 'Create failed: ' + JSON.stringify(err)
     });
   }
 
-  // CALENDAR HANDLERS
-  toggleCalendarForm(courseId: number) {
-    if (!this.calendarForms[courseId]) {
-      this.calendarForms[courseId] = new FormGroup({
-        startDate: new FormControl('', Validators.required),
-        endDate: new FormControl('', Validators.required),
+  toggleUpdateForm(courseId: number) {
+    this.showUpdateForm[courseId] = !this.showUpdateForm[courseId];
+    if (!this.updateForms[courseId]) {
+      const c = this.courses.find(x => x.courseId === courseId)!;
+      this.updateForms[courseId] = new FormGroup({
+        courseName: new FormControl(c.courseName, Validators.required),
+        description: new FormControl(c.description ?? ''),
+        durationDays: new FormControl(c.durationDays ?? 0),
+        startDate: new FormControl(c.calendars?.[0]?.startDate ?? ''),
+        endDate: new FormControl(c.calendars?.[0]?.endDate ?? '')
       });
     }
-    this.showCalendarForm[courseId] = !this.showCalendarForm[courseId];
   }
 
-  createCalendar(courseId: number) {
-    const form = this.calendarForms[courseId];
-    this.calendarSvc.create({
+  updateCourse(courseId: number) {
+    const val = this.updateForms[courseId].value;
+    this.courseSvc.update(courseId, {
       courseId,
-      startDate: form.value.startDate,
-      endDate: form.value.endDate,
+      courseName: val.courseName!,
+      description: val.description!,
+      durationDays: val.durationDays
     }).subscribe({
-      next: (cal: CourseCalendar) => {
-        this.calendarMsgMap[courseId] = 'Calendar created';
-        this.courseCalendars[courseId] = cal; // save calendar for later
-        form.reset();
-      },
-      error: err => this.calendarMsgMap[courseId] = 'Create failed: ' + JSON.stringify(err)
+      next: () => {
+        if (val.startDate && val.endDate) {
+          const cal = this.courses.find(c => c.courseId === courseId)?.calendars?.[0];
+          if (cal) {
+            this.calendarSvc.update(cal.calendarId, {
+              calendarId: cal.calendarId,
+              courseId,
+              startDate: val.startDate!,
+              endDate: val.endDate!
+            }).subscribe(() => this.loadCourses());
+          }
+        }
+        this.showUpdateForm[courseId] = false;
+        this.loadCourses();
+      }
     });
   }
 
-  // BATCH HANDLERS
-  toggleBatchForm(courseId: number) {
-    if (!this.batchForms[courseId]) {
-      this.batchForms[courseId] = new FormGroup({
-        batchName: new FormControl('', Validators.required),
-      });
-    }
-    this.showBatchForm[courseId] = !this.showBatchForm[courseId];
+  deleteCourse(courseId: number) {
+    if (!confirm('Delete this course?')) return;
+    this.courseSvc.delete(courseId).subscribe(() => this.loadCourses());
   }
 
   createBatch(courseId: number) {
     const form = this.batchForms[courseId];
-    const cal = this.courseCalendars[courseId];
-    if (!cal) {
-      this.batchMsgMap[courseId] = 'No calendar found for this course';
-      return;
-    }
-
+    const course = this.courses.find(c => c.courseId === courseId);
+    const cal = course?.calendars?.[0];
+    if (!cal) return;
     this.batchSvc.create({
       batchName: form.value.batchName,
       calendarId: cal.calendarId
-    }).subscribe({
-      next: () => {
-        this.batchMsgMap[courseId] = 'Batch created';
-        form.reset();
-      },
-      error: err => this.batchMsgMap[courseId] = 'Create failed: ' + JSON.stringify(err)
+    }).subscribe(() => {
+      form.reset();
+      this.loadCourses();
     });
+  }
+
+  deleteBatch(batchId: number) {
+    if (!confirm('Delete batch?')) return;
+    this.batchSvc.delete(batchId).subscribe(() => this.loadCourses());
+  }
+
+  deactivateBatch(batchId: number) {
+    if (!confirm('Deactivate batch?')) return;
+    this.batchSvc.delete(batchId).subscribe(() => this.loadCourses());
   }
 }

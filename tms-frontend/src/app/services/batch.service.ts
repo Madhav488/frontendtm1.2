@@ -19,4 +19,11 @@ export class BatchService {
   create(batch: Partial<Batch>) {
     return this.http.post<Batch>(this.baseUrl, batch);
   }
+  update(id: number, batch: Batch) {
+  return this.http.put(`${this.baseUrl}/${id}`, batch);
+}
+delete(id: number) {
+  return this.http.delete(`${this.baseUrl}/${id}`);
+}
+
 }

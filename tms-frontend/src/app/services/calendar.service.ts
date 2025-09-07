@@ -12,4 +12,11 @@ export class CalendarService {
   create(calendar: Partial<CourseCalendar>) {
     return this.http.post<CourseCalendar>(this.baseUrl, calendar);
   }
+  update(id: number, cal: CourseCalendar) {
+  return this.http.put(`${this.baseUrl}/${id}`, cal);
+}
+delete(id: number) {
+  return this.http.delete(`${this.baseUrl}/${id}`);
+}
+
 }

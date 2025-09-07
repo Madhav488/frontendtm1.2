@@ -8,4 +8,11 @@ export class CourseService {
   constructor(private http: HttpClient) {}
   getAll() { return this.http.get<Course[]>(this.baseUrl); }
   create(course: Partial<Course>) { return this.http.post<Course>(this.baseUrl, course);}
+  update(id: number, course: Course) {
+  return this.http.put(`${this.baseUrl}/${id}`, course);
+}
+delete(id: number) {
+  return this.http.delete(`${this.baseUrl}/${id}`);
+}
+
 }
