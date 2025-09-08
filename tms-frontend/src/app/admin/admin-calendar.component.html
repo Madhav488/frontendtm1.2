@@ -1,0 +1,93 @@
+<h2>📅 Course Calendar - Admin</h2>
+
+<!-- 🔍 Search -->
+<section class="panel">
+  <input [(ngModel)]="searchId" placeholder="Enter Batch ID" />
+  <button (click)="onSearch()">Search Batch</button>
+  <button (click)="toggleCreateForm()">➕ Create Batch</button>
+</section>
+
+<!-- 📝 Create Batch -->
+<section *ngIf="showCreateForm" class="panel">
+  <form [formGroup]="batchForm" (ngSubmit)="submitBatch()">
+    <label>Calendar:
+      <select formControlName="calendarId">
+        <option *ngFor="let c of calendars" [value]="c.calendarId">
+          {{c.course?.courseName}} ({{c.startDate | date}} - {{c.endDate | date}})
+        </option>
+      </select>
+    </label>
+    <label>Batch Name:
+      <input type="text" formControlName="batchName" />
+    </label>
+    <button type="submit" [disabled]="batchForm.invalid">Create</button>
+    <button type="button" (click)="toggleCreateForm()">Cancel</button>
+  </form>
+</section>
+
+<!-- 📊 Active Batches -->
+<section class="panel">
+  <h3>Active Batches</h3>
+  <table *ngIf="activeBatches.length; else noActive">
+    <thead>
+      <tr>
+        <th>Batch</th>
+        <th>Course</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Enrollments</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let b of activeBatches">
+        <td>{{b.batchName}}</td>
+        <td>{{b.calendar?.course?.courseName}}</td>
+        <td>{{b.calendar?.startDate | date}}</td>
+        <td>{{b.calendar?.endDate | date}}</td>
+        <td><button (click)="showEnrollments(b.batchId)">View ({{b.enrollmentCount}})</button></td>
+        <td><button (click)="deleteBatch(b.batchId)">🗑️</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #noActive><em>No active batches</em></ng-template>
+</section>
+
+<!-- 👥 Enrollments -->
+<section *ngIf="selectedEnrollments.length" class="panel">
+  <h3>Enrollments for Batch {{selectedBatchId}}</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Employee</th><th>Status</th><th>Approved By</th></tr></thead>
+    <tbody>
+      <tr *ngFor="let e of selectedEnrollments">
+        <td>{{e.enrollmentId}}</td>
+        <td>{{e.employeeName}}</td>
+        <td>{{e.status}}</td>
+        <td>{{e.approvedBy || '-'}}</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ⭐ Feedback -->
+<section class="panel">
+  <h3>Feedback</h3>
+  <input type="number" #batchSearch placeholder="Batch ID" />
+  <button (click)="searchFeedbackByBatch(+batchSearch.value)">Search Feedback</button>
+  <table *ngIf="feedbacks.length; else noFeedback">
+    <thead>
+      <tr><th>Course</th><th>Batch</th><th>User</th><th>Rating</th><th>Feedback</th><th>Date</th></tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let f of feedbacks">
+        <td>{{f.courseName}}</td>
+        <td>{{f.batchName}}</td>
+        <td>{{f.username}}</td>
+        <td>⭐ {{f.rating}}</td>
+        <td>{{f.feedbackText}}</td>
+        <td>{{f.submittedOn | date:'short'}}</td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #noFeedback><em>No feedback</em></ng-template>
+</section>

@@ -41,3 +41,10 @@ export interface FeedbackCreateDto {
   feedbackText?: string;
   rating: number;
 }
+export interface FeedbackReadDto {
+  feedbackId: number;
+  batchId: number;
+  username: string;
+  rating: number;
+  feedbackText: string;
+}

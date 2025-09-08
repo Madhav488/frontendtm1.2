@@ -43,4 +43,8 @@ export class EnrollmentService {
 enrollEmployee(employeeId: number, batchId: number) {
   return this.http.post(`${this.baseUrl}/enroll?employeeId=${employeeId}&batchId=${batchId}`, {});
 }
+getByBatch(batchId: number) {
+  return this.http.get<EnrollmentDto[]>(`${this.baseUrl}/batch/${batchId}`);
+}
+
 }
